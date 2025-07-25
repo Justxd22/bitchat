@@ -1,0 +1,41 @@
+name: Build and Upload iOS Artifact
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build archive (Simulator; no code signing)
+        run: |
+          xcodebuild clean archive \
+            -project bitchat.xcodeproj \
+            -scheme bitchat \
+            -destination 'generic/platform=iOS Simulator' \
+            -archivePath $RUNNER_TEMP/bitchat.xcarchive
+
+      # Export an unsigned .ipa
+      - name: Export .ipa (unsigned)
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/bitchat.xcarchive \
+            -exportPath $RUNNER_TEMP/build \
+            -exportOptionsPlist ExportOptions.plist || true
+
+      - name: Upload .ipa artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: bitchat-ios-ipa
+          path: ${{ runner.temp }}/build
